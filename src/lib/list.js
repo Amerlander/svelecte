@@ -1,4 +1,4 @@
-import Sifter from './sifter';
+import fuzzysort from 'fuzzysort';
 
 export function initSelection(initialValue, valueAsObject, config) {
   if (valueAsObject) return Array.isArray(initialValue) ? initialValue : [initialValue];
