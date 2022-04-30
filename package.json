@@ -12,6 +12,7 @@
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
+    "fuzzysort": "github:Amerlander/fuzzysort",
     "svelte-tiny-virtual-list": "^2.0.0"
   },
   "devDependencies": {
