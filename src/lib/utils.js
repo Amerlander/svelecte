@@ -1,4 +1,4 @@
-import { asciifold } from './sifter';
+// import { asciifold } from './sifter';
 
 // source: https://github.com/rob-balfre/svelte-select/blob/master/src/utils/isOutOfViewport.js
 export function isOutOfViewport(elem) {
@@ -65,23 +65,23 @@ let itemHtml;
 export function highlightSearch(item, isSelected, $inputValue, formatter, disableHighlight) {
   const itemHtmlText = formatter ? formatter(item, isSelected, $inputValue) : item;
   
-  if ($inputValue == '' || item.isSelected || disableHighlight) {
+  // if ($inputValue == '' || item.isSelected || disableHighlight) {
     return '<div class="sv-item-content">' + itemHtmlText + '</div>';
-  }
+  // }
 
-  if (!itemHtml) {
-    itemHtml = document.createElement('div');
-    itemHtml.className = 'sv-item-content';
-  }
-  itemHtml.innerHTML = itemHtmlText;
+  // if (!itemHtml) {
+  //   itemHtml = document.createElement('div');
+  //   itemHtml.className = 'sv-item-content';
+  // }
+  // itemHtml.innerHTML = itemHtmlText;
 
   // const regex = new RegExp(`(${asciifold($inputValue)})`, 'ig');
-  const pattern = asciifold($inputValue);
-  pattern.split(' ').filter(e => e).forEach(pat => {
-    highlight(itemHtml, pat);
-  });
+  // const pattern = asciifold($inputValue);
+  // pattern.split(' ').filter(e => e).forEach(pat => {
+  //   highlight(itemHtml, pat);
+  // });
   
-  return itemHtml.outerHTML;
+  // return itemHtml.outerHTML;
 }
 
 /**
