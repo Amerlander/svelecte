@@ -125,7 +125,7 @@ export function fieldInit(type, options, config) {
   if (config.isOptionArray) return isValue ? 'value' : 'label';
   let val = isValue  ? 'value' : 'text';              // selectize style defaults
   if (options && options.length) {
-    const firstItem = options[0].options ? options[0].options[0] : options[0];
+    const firstItem = options[0][config.optItems] ? options[0][config.optItems][0] : options[0];
     if (!firstItem) return val;
     const autoAddItem = isValue ? 0 : 1;
     const guessList = isValue
@@ -157,6 +157,15 @@ export function iOS() {
 }
 
 /**
+ * Detects if on android device
+ * 
+ * @returns {bool}
+ */
+export function android() {
+  return navigator.userAgent.toLowerCase().includes('android');
+}
+
+/**
  * Formatter of newly created items. When `''` is returned, it means new option cannot be created.
  * 
  * @param {string} val 
@@ -164,7 +173,7 @@ export function iOS() {
  * @returns {string}
  */
 export function defaultCreateFilter(val, options) {  
-  return (val || '').replaceAll('\t', ' ').trim().split(' ').filter(ch => ch).join(' ');
+  return (val || '').replace(/\t/g, ' ').trim().split(' ').filter(ch => ch).join(' ');
 }
 
 /**

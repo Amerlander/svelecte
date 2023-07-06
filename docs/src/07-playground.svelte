@@ -1,5 +1,5 @@
 <script>
-  import Svelecte, { addFormatter, config } from  '../../src/Svelecte.svelte';
+  import Svelecte, { addFormatter, config, TAB_SELECT_NAVIGATE } from  '../../src/Svelecte.svelte';
   import { dataset } from './data.js';
 
   let myValue = null;
@@ -41,8 +41,9 @@
 
   let cmp;
   let isFlexWidth = false;
+  let selectOnTabNav = false;
   let { 
-    multiple, max, collapseSelection,
+    multiple, max, collapseSelection, alwaysCollapsed,
     placeholder, searchable, clearable, selectOnTab,
     disabled,
     creatable, creatablePrefix, allowEditing, keepCreated, delimiter,
@@ -121,7 +122,7 @@
       }
     } else if (['json', 'colors'].includes(remoteValue)) {
       settings = {
-        multiple, max, collapseSelection,
+        multiple, max, collapseSelection, alwaysCollapsed,
         searchable, clearable, selectOnTab,
         disabled, creatable, creatablePrefix, allowEditing, keepCreated, delimiter, virtualList,
         style,
@@ -135,7 +136,7 @@
       }
     } else if (remoteValue === 'tags') {
       settings = {
-        multiple, max, collapseSelection,
+        multiple, max, collapseSelection, alwaysCollapsed,
         searchable, clearable, selectOnTab, placeholder,
         disabled, creatable, creatablePrefix, allowEditing, keepCreated, delimiter, virtualList,
         style,
@@ -149,6 +150,10 @@
   }
 
   function s(prop, value) {
+    if (prop === 'selectOnTabNav') {
+      prop = 'selectOnTab';
+      value = value ? TAB_SELECT_NAVIGATE : false;
+    } 
     settings[prop] = value !== null ? value : !settings[prop];
     settings = settings;
   }
@@ -270,6 +275,11 @@
             <span class="tooltip" data-tooltip="Limit selection count"><input class="input-sm" type="number" placeholder="limit" disabled={!settings.multiple} on:input={e => s('max', parseInt(e.target.value))} min="0" bind:value={max}></span>
             <br>
             <label class="tooltip" data-tooltip="Show only selection sum string"><input type="checkbox" on:change={e => s('collapseSelection', e.target.checked) } disabled={!settings.multiple} bind:checked={collapseSelection}> Collapse selection</label>
+            <br>
+            <label class="tooltip" data-tooltip=
+"Always keep selection collapsed.
+Show selection in dropdown"
+            ><input type="checkbox" on:change={e => s('alwaysCollapsed', e.target.checked) } disabled={!settings.multiple} bind:checked={alwaysCollapsed}> Always collapsed</label>
             <hr>
             <label><input type="checkbox" bind:checked={isFlexWidth}> Inline width</label>
           </fieldset>
@@ -300,7 +310,8 @@ when creating new items">
             Placeholder <input class="input-sm" on:input={e => s('placeholder', e.target.value)} bind:value={settings.placeholder}><br>
             <label><input type="checkbox" on:change={e => s('searchable', e.target.checked)} bind:checked={searchable}> Searchable</label><br>
             <label><input type="checkbox" on:change={e => s('clearable', e.target.checked)} bind:checked={clearable}> Clearable</label><br>
-            <label><input type="checkbox" on:change={e => s('selectOnTab', e.target.checked)} bind:checked={selectOnTab}> Select on <kbd>Tab</kbd></label>
+            <label><input type="checkbox" on:change={e => s('selectOnTab', e.target.checked)} bind:checked={selectOnTab}> Select on <kbd>Tab</kbd></label><br>
+            <label><input type="checkbox" on:change={e => s('selectOnTabNav', e.target.checked)} bind:checked={selectOnTabNav}> Select on <kbd>Tab</kbd> and navigate to next input</label>
             
           </fieldset>
 

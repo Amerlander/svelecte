@@ -1,6 +1,6 @@
 <script context="module">
   import defaults from './settings.js';
-  import { debounce, xhr, fieldInit, iOS } from './lib/utils.js'; // shared across instances
+  import { debounce, xhr, fieldInit, iOS, android } from './lib/utils.js'; // shared across instances
 
   const formatterList = {
     default: function(item) { return item[this.label]; }
@@ -16,6 +16,7 @@
     }
   };
   export const config = defaults;
+  export const TAB_SELECT_NAVIGATE = 'select-navigate';
 </script>
 
 <!-- svelte-ignore module-script-reactive-declaration -->
@@ -38,6 +39,8 @@
   export let options = [];
   export let valueField = defaults.valueField;
   export let labelField = defaults.labelField;
+  export let groupLabelField = defaults.groupLabelField;
+  export let groupItemsField = defaults.groupItemsField;
   export let disabledField = defaults.disabledField;
   export let placeholder = 'Select';
   // UI, UX
@@ -45,8 +48,11 @@
   export let clearable = defaults.clearable;
   export let renderer = null;
   export let disableHighlight = false;
+  export let highlightFirstItem = defaults.highlightFirstItem;
   export let selectOnTab = defaults.selectOnTab;
   export let resetOnBlur = defaults.resetOnBlur;
+  export let resetOnSelect = defaults.resetOnSelect;
+  export let closeAfterSelect = defaults.closeAfterSelect;
   export let dndzone = () => ({ noop: true, destroy: () => {}});
   export let validatorAction = null;
   export let dropdownItem = Item;
@@ -55,6 +61,7 @@
   export let multiple = defaults.multiple;
   export let max = defaults.max;
   export let collapseSelection = defaults.collapseSelection;
+  export let alwaysCollapsed = defaults.alwaysCollapsed;
   // creating
   export let creatable = defaults.creatable;
   export let creatablePrefix = defaults.creatablePrefix;
@@ -124,6 +131,8 @@
     valueField: valueField,
     labelField: labelField,
     labelAsValue: labelAsValue,
+    optLabel: groupLabelField,
+    optItems: groupItemsField
   };
   /* possibility to provide initial (selected) values in `fetch` mode **/
   if (fetch && value && valueAsObject && (!options || (options && options.length === 0))) {
@@ -137,6 +146,7 @@
   let currentValueField = valueField || fieldInit('value', options, itemConfig);
   let currentLabelField = labelField || fieldInit('label', options, itemConfig);
   let isIOS = false;
+  let isAndroid = false;
   let refSelectAction = validatorAction ? validatorAction.shift() : () => ({ destroy: () => {}});
   let refSelectActionParams = validatorAction || [];
   let refSelectElement = null;
@@ -181,6 +191,9 @@
     if (!fetch) return null;
     cancelXhr();
 
+    // update fetchInitValue when fetch is changed, but we are in 'init' mode, ref #113
+    if (initFetchOnly && prevValue) fetchInitValue = prevValue;
+
     const fetchSource = typeof fetch === 'string' ? fetchRemote(fetch) : fetch;
     // reinit this if `fetch` property changes
     initFetchOnly = fetchMode === 'init' || (fetchMode === 'auto' && typeof fetch === 'string' && fetch.indexOf('[query]') === -1);
@@ -205,7 +218,10 @@
           $hasFocus && hasDropdownOpened.set(true);
           listMessage = _i18n.fetchEmpty;
           tick().then(() => {
-            initFetchOnly && fetchInitValue && handleValueUpdate(fetchInitValue);
+            if (initFetchOnly && fetchInitValue) {
+              handleValueUpdate(fetchInitValue);
+              fetchInitValue = null;
+            }
             dispatch('fetch', options)
           });
         })
@@ -247,21 +263,20 @@
     }
   }
 
-  $: prevValue !== value && handleValueUpdate(value);
-
   /** - - - - - - - - - - STORE - - - - - - - - - - - - - -*/
   let selectedOptions = value !== null ? initSelection.call(options, value, valueAsObject, itemConfig) : [];
   let selectedKeys = selectedOptions.reduce((set, opt) => { set.add(opt[currentValueField]); return set; }, new Set());
   let alreadyCreated = [''];
   $: flatItems = flatList(options, itemConfig);
-  $: maxReached = max && selectedOptions.length === max
+  $: prevValue !== value && handleValueUpdate(value);
+  $: maxReached = max && selectedOptions.length == max;   // == is intentional, if string is provided
   $: availableItems = maxReached
     ? []
     : filterList(flatItems, disableSifter ? null : $inputValue, multiple ? selectedKeys : false, searchField, sortField, itemConfig);
   $: currentListLength = creatable && $inputValue ? availableItems.length : availableItems.length - 1;
   $: listIndex = indexList(availableItems, creatable && $inputValue, itemConfig);
   $: {
-    if (dropdownActiveIndex === null) {
+    if (dropdownActiveIndex === null && (highlightFirstItem || $inputValue)) {
       dropdownActiveIndex = listIndex.first;
     } else if (dropdownActiveIndex > listIndex.last) {
       dropdownActiveIndex = listIndex.last;
@@ -275,7 +290,13 @@
       ? _i18n.nomatch
       : (fetch
         ? (minQuery <= 1 
-          ? (initFetchOnly ? _i18n.fetchInit : _i18n.fetchBefore)
+          ? (initFetchOnly 
+            ? (isFetchingData
+              ? _i18n.fetchInit
+              : _i18n.empty
+              )
+            : _i18n.fetchBefore
+            )
           : _i18n.fetchQuery(minQuery, $inputValue.length)
         )
         : _i18n.empty
@@ -323,7 +344,10 @@
   function emitChangeEvent() {
     tick().then(() => {
       dispatch('change', readSelection);
-      refSelectElement && refSelectElement.dispatchEvent(new Event('input')); // required for svelte-use-form
+      if (refSelectElement) {
+        refSelectElement.dispatchEvent(new Event('input'));   // required for svelte-use-form
+        refSelectElement.dispatchEvent(new Event('change'));  // typically you expect change event to be fired
+      }
     });
   }
 
@@ -336,19 +360,29 @@
 
   /**
    * update inner selection, when 'value' property is changed
+   * 
+   * @internal before 3.9.1 it was possible when `valueAsObject` was set to set value OUTSIDE defined options. Fix at
+   * 3.9.1 broke manual value setter. Which has been resolved now through #128. Which disables pre 3.9.1 behavior
+   *
+   * FUTURE: to enable this behavior add property for it. Could be useful is some edge cases I would say.
    */
   function handleValueUpdate(passedVal) {
     clearSelection();
     if (passedVal) {
       let _selection = Array.isArray(passedVal) ? passedVal : [passedVal];
-      if (!valueAsObject) {
-        const valueProp = itemConfig.labelAsValue ? currentLabelField : currentValueField;
-        _selection = _selection.reduce((res, val) => {
-          const opt = flatItems.find(item => item[valueProp] == val);
-          opt && res.push(opt);
+      const valueProp = itemConfig.labelAsValue ? currentLabelField : currentValueField;
+      _selection = _selection.reduce((res, val) => {
+        if (creatable && valueAsObject && val.$created) {
+          res.push(val);
           return res;
-        }, []);
-      }
+        }
+        const opt = flatItems.find(item => valueAsObject
+          ? item[valueProp] == val[valueProp]
+          : item[valueProp] == val
+        );
+        opt && res.push(opt);
+        return res;
+      }, []);
       let success = _selection.every(selectOption) && (multiple
         ? passedVal.length === _selection.length
         : _selection.length > 0
@@ -356,8 +390,9 @@
       if (!success) {
         // this is run only when invalid 'value' is provided, like out of option array
         console.warn('[Svelecte]: provided "value" property is invalid', passedVal);
-        value = null;
-        readSelection = null;
+        value = multiple ? [] : null;
+        readSelection = value;
+        dispatch('invalidValue', passedVal);
         return;
       }
       readSelection = Array.isArray(passedVal) ? _selection : _selection.shift();
@@ -376,6 +411,7 @@
     if (selectedKeys.has(opt[currentValueField])) return;
 
     if (typeof opt === 'string') {
+      if (!creatable) return;
       opt = createFilter(opt, options);
       if (alreadyCreated.includes(opt)) return;
       !fetch && alreadyCreated.push(opt);
@@ -421,6 +457,7 @@
   function clearSelection() {
     selectedKeys.clear();
     selectedOptions = [];
+    maxReached = false;       // reset forcefully, related to #145
     flatItems = flatItems;
   }
 
@@ -432,8 +469,8 @@
     if (disabled || opt[disabledField] || opt.$isGroupHeader) return;
 
     selectOption(opt);
-    $inputValue = '';
-    if (!multiple) {
+    if ((multiple && resetOnSelect) || !multiple) $inputValue = '';
+    if (!multiple || closeAfterSelect) {
       $hasDropdownOpened = false;
     } else {
       tick().then(() => {
@@ -497,6 +534,9 @@
         event.preventDefault();
         if (!$hasDropdownOpened) {
           $hasDropdownOpened = true;
+          if (dropdownActiveIndex === null) {
+            dropdownActiveIndex = listIndex.first
+          }
           return;
         }
         dropdownActiveIndex = listIndex.prev(dropdownActiveIndex);
@@ -517,9 +557,12 @@
         event.preventDefault();
         if (!$hasDropdownOpened) {
           $hasDropdownOpened = true;
+          if (dropdownActiveIndex === null) {
+            dropdownActiveIndex = listIndex.first
+          }
           return;
         }
-        dropdownActiveIndex = listIndex.next(dropdownActiveIndex);
+        dropdownActiveIndex = dropdownActiveIndex === null ? listIndex.first : listIndex.next(dropdownActiveIndex);
         tick().then(refDropdown.scrollIntoView);
         ignoreHover = true;
         break;
@@ -536,7 +579,10 @@
         break;
       case Tab:
       case 'Enter':
-        if (!$hasDropdownOpened) return;
+        if (!$hasDropdownOpened) {
+          event.key !== Tab && dispatch('enterKey', event); // ref #125
+          return;
+        }
         let activeDropdownItem = !ctrlKey ? availableItems[dropdownActiveIndex] : null;
         if (creatable && $inputValue) {
           activeDropdownItem = !activeDropdownItem || ctrlKey
@@ -550,9 +596,10 @@
         }
         if (!activeDropdownItem && selectedOptions.length) {
           $hasDropdownOpened = false;
+          event.key !== Tab && dispatch('enterKey', event); // ref #125
           return;
         }
-        event.preventDefault(); // prevent form submit
+        (event.key !== Tab || (event.key === Tab && selectOnTab !== TAB_SELECT_NAVIGATE)) && event.preventDefault(); // prevent form submit
         break;
       case ' ':
         if (!fetch && !$hasDropdownOpened) {
@@ -573,7 +620,10 @@
         if (!ctrlKey && !['Tab', 'Shift'].includes(event.key) && !$hasDropdownOpened && !isFetchingData) {
           $hasDropdownOpened = true;
         }
-        if (!multiple && selectedOptions.length && event.key !== 'Tab') event.preventDefault();
+        if (!multiple && selectedOptions.length && event.key !== 'Tab') {
+          event.preventDefault();
+          event.stopPropagation();
+        }
     }
   }
 
@@ -584,7 +634,10 @@
     if (creatable) {
       event.preventDefault();
       const rx = new RegExp('([^' + delimiter + '\\n]+)', 'g');
-      const pasted = event.clipboardData.getData('text/plain').replaceAll('/', '\/').replaceAll('\t', ' ');
+      const pasted = event.clipboardData
+        .getData('text/plain')
+          .replace(/\//g, '\/')
+          .replace(/\t/g, ' ');
       const matches = pasted.match(rx);
       if (matches.length === 1 && pasted.indexOf(',') === -1) {
         $inputValue = matches.pop().trim();
@@ -606,22 +659,22 @@
       const valueProp = itemConfig.labelAsValue ? currentLabelField : currentValueField;
       alreadyCreated = [''].concat(flatItems.map(opt => opt[valueProp]).filter(opt => opt));
     }
-    dropdownActiveIndex = listIndex.first;
     if (prevValue && !multiple) {
       const prop = labelAsValue ? currentLabelField : currentValueField;
       const selectedProp = valueAsObject ? prevValue[prop] : prevValue;
       dropdownActiveIndex = flatItems.findIndex(opt => opt[prop] === selectedProp);
     }
     isIOS = iOS();
+    isAndroid = android();
     if (name && !hasAnchor) refSelectElement = document.getElementById(__id);
   });
 </script>
 
 <div class={`svelecte ${className}`} class:is-disabled={disabled} {style}>
   <Control bind:this={refControl} renderer={itemRenderer}
-    {disabled} {clearable} {searchable} {placeholder} {multiple} {inputId} {resetOnBlur} collapseSelection={collapseSelection ? config.collapseSelectionFn : null}
+    {disabled} {clearable} {searchable} {placeholder} {multiple} inputId={inputId || __id} {resetOnBlur} collapseSelection={collapseSelection ? config.collapseSelectionFn.bind(_i18n): null}
     inputValue={inputValue} hasFocus={hasFocus} hasDropdownOpened={hasDropdownOpened} selectedOptions={selectedOptions} {isFetchingData}
-    {dndzone} {currentValueField}
+    {dndzone} {currentValueField} {isAndroid} {isIOS} {alwaysCollapsed}
     itemComponent={controlItem}
     on:deselect={onDeselect}
     on:keydown={onKeyDown}
@@ -631,6 +684,17 @@
     on:blur
   >
     <div slot="icon" class="icon-slot"><slot name="icon"></slot></div>
+    <div slot="control-end"><slot name="control-end"></slot></div>
+    <slot name="indicator-icon" slot="indicator-icon" let:hasDropdownOpened {hasDropdownOpened}>
+      <svg width="20" height="20" class="indicator-icon" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+        <path d="M4.516 7.548c0.436-0.446 1.043-0.481 1.576 0l3.908 3.747 3.908-3.747c0.533-0.481 1.141-0.446 1.574 0 0.436 0.445 0.408 1.197 0 1.615-0.406 0.418-4.695 4.502-4.695 4.502-0.217 0.223-0.502 0.335-0.787 0.335s-0.57-0.112-0.789-0.335c0 0-4.287-4.084-4.695-4.502s-0.436-1.17 0-1.615z"></path>
+      </svg>
+    </slot>
+    <slot name="clear-icon" slot="clear-icon" {selectedOptions} inputValue={$inputValue}>
+      {#if selectedOptions.length}
+      <svg class="indicator-icon" height="20" width="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M14.348 14.849c-0.469 0.469-1.229 0.469-1.697 0l-2.651-3.030-2.651 3.029c-0.469 0.469-1.229 0.469-1.697 0-0.469-0.469-0.469-1.229 0-1.697l2.758-3.15-2.759-3.152c-0.469-0.469-0.469-1.228 0-1.697s1.228-0.469 1.697 0l2.652 3.031 2.651-3.031c0.469-0.469 1.228-0.469 1.697 0s0.469 1.229 0 1.697l-2.758 3.152 2.758 3.15c0.469 0.469 0.469 1.229 0 1.698z"></path></svg>
+      {/if}
+    </slot>
   </Control>
   <Dropdown bind:this={refDropdown} renderer={itemRenderer} {disableHighlight} {creatable} {maxReached} {alreadyCreated}
     {virtualList} {vlHeight} {vlItemSize} lazyDropdown={virtualList || lazyDropdown} {multiple}
@@ -638,14 +702,16 @@
     items={availableItems} {listIndex}
     inputValue={dropdownInputValue} {hasDropdownOpened} {listMessage} {disabledField} createLabel={_i18n.createRowLabel}
     metaKey={isIOS ? '⌘' : 'Ctrl'}
+    selection={collapseSelection && alwaysCollapsed ? selectedOptions : null}
     itemComponent={dropdownItem}
     on:select={onSelect}
+    on:deselect={onDeselect}
     on:hover={onHover}
     on:createoption
     let:item={item}
   ></Dropdown>
   {#if name && !hasAnchor}
-  <select id={__id} name={name} {multiple} class="is-hidden" tabindex="-1" {required} {disabled} use:refSelectAction={refSelectActionParams}>
+  <select id={__id} name={name} {multiple} class="sv-hidden-element" tabindex="-1" {required} {disabled} use:refSelectAction={refSelectActionParams}>
     {#each selectedOptions as opt}
     <option value={opt[labelAsValue ? currentLabelField : currentValueField]} selected>{opt[currentLabelField]}</option>
     {/each}
@@ -683,18 +749,21 @@
   .svelecte { position: relative; flex: 1 1 auto; color: var(--sv-color);}
   .svelecte.is-disabled { pointer-events: none; }
   .icon-slot { display: flex; }
-  .is-hidden { opacity: 0; position: absolute; z-index: -2; top: 0; height: 38px}
+  .sv-hidden-element { opacity: 0; position: absolute; z-index: -2; top: 0; height: var(--sv-min-height)}
 
   /** globally available styles for control/dropdown Item components */    
-  :global(.svelecte-control .has-multiSelection .sv-item) {
+  :global(.svelecte-control .has-multiSelection .sv-item),
+  :global(#dnd-action-dragged-el .sv-item) {
     background-color: var(--sv-item-selected-bg);
     margin: 2px 4px 2px 0;
   }
   :global(.svelecte-control .has-multiSelection .sv-item-content),
-  :global(.svelecte-control .sv-dropdown-content .sv-item) {
+  :global(.svelecte-control .sv-dropdown-content .sv-item),
+  :global(#dnd-action-dragged-el .sv-item-content) {
     padding: 3px 3px 3px 6px;
   }
-  :global(.svelecte-control .sv-item) {
+  :global(.svelecte-control .sv-item),
+  :global(#dnd-action-dragged-el .sv-item) {
     display: flex;
     min-width: 0px;
     box-sizing: border-box;
@@ -703,7 +772,8 @@
   }
   :global(.svelecte-control .sv-item.is-disabled) { opacity: 0.5; cursor: not-allowed; }
 
-  :global(.svelecte-control .sv-item-content) {
+  :global(.svelecte-control .sv-item-content),  
+  :global(#dnd-action-dragged-el .sv-item-content) {
     color: var(--sv-item-color, var(--sv-color));
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -721,5 +791,12 @@
   :global(.svelecte-control .highlight) {
     background-color: var(--sv-highlight-bg);
     color: var(--sv-highlight-color, var(--sv-color));
+  }
+  .indicator-icon {
+    display: inline-block;
+    fill: currentcolor;
+    line-height: 1;
+    stroke: currentcolor;
+    stroke-width: 0px;
   }
 </style>

@@ -9,7 +9,7 @@ const OPTION_LIST = [
   // basic
   'value-field', 'label-field', 'disabled-field', 'placeholder',
   // UI, UX
-  'searchable', 'clearable', 'renderer', 'disable-highlight', 'select-on-tab', 'reset-on-blur',
+  'searchable', 'clearable', 'renderer', 'disable-highlight', 'select-on-tab', 'reset-on-blur', 'reset-on-select',
   // multiple
   'multiple', 'max', 'collapse-selection',
   // creating
@@ -24,6 +24,13 @@ const OPTION_LIST = [
   'label-as-value'
 ];
 
+function formatValueProp(value, delimiter) {
+  return value ? value.split(delimiter).map(item => {
+    const _v = parseInt(item);
+    return isNaN(_v) ? (item !== 'null' ? item : null) : _v;
+  }) : ''
+}
+
 function formatValue(name, value) {
   switch (name) {
     case 'options':
@@ -37,11 +44,6 @@ function formatValue(name, value) {
         value = [];
       }
       return value;
-    case 'value':
-      return value ? value.split(',').map(item => {
-        const _v = parseInt(item);
-        return isNaN(_v) ? (item !== 'null' ? item : null) : _v;
-      }) : '';
     case 'renderer':
       return value || 'default';
     case 'required':
@@ -51,6 +53,7 @@ function formatValue(name, value) {
     case 'disable-highlight':
     case 'select-on-tab':
     case 'reset-on-blur':
+    case 'reset-on-select':
     case 'multiple':
     case 'collapse-selection':
     case 'creatable':
@@ -117,7 +120,8 @@ class SvelecteElement extends HTMLElement {
             : null;
         },
         set(value) {
-          this.setAttribute('value', Array.isArray(value) ? value.join(',') : value);
+          const delim = this.getAttribute('value-delimiter') || ',';
+          this.setAttribute('value', Array.isArray(value) ? value.join(delim) : value);
         }
       },
       'options': {
@@ -237,7 +241,7 @@ class SvelecteElement extends HTMLElement {
         }
       }
     };
-    const boolProps = ['searchable','clearable','disable-highlight', 'required', 'select-on-tab','reset-on-blur',
+    const boolProps = ['searchable','clearable','disable-highlight', 'required', 'select-on-tab','reset-on-blur','reset-on-select',
       'multiple','collapse-selection','creatable','allow-editing','keep-created','fetch-reset-on-blur',
       'virtual-list','disable-sifter','label-as-value', 'disabled'
     ].reduce((res, propName) => {
@@ -311,19 +315,35 @@ class SvelecteElement extends HTMLElement {
     let props = {};
     for (const attr of OPTION_LIST) {
       if (this.hasAttribute(attr)) {
-        props[formatProp(attr)] = formatValue(attr, this.getAttribute(attr));
+        props[formatProp(attr)] = attr !== 'value'
+          ? formatValue(attr, this.getAttribute(attr))
+          : formatValueProp(this.getAttribute('value'), this.getAttribute('value-delimiter') || ',');
       }
+    }
+    if (this.hasAttribute('i18n')) {
+      const i18nObj = JSON.parse(this.getAttribute('i18n'));
+      if (i18nObj.createRowLabel) {
+        const labelText = i18nObj.createRowLabel;
+        i18nObj.createRowLabel = value => labelText.replace('#value', value);
+      }
+      props.i18n = i18nObj;
     }
     if (this.hasAttribute('class')) {
       props.class = this.getAttribute('class');
     }
     if (this.hasAttribute('parent')) {
-      delete props['fetch'];
-      props.disabled = true;
       this.parent = document.getElementById(this.getAttribute('parent'));
       if (!this.parent.value && this.svelecte) {
         return;
       };
+      const parentValue = this.parent.value || this.parent.getAttribute('value'); // for 'fetch'ed parent, value is always null
+      if (parentValue) {
+        props.disabled = false;
+        props.fetch = this.getAttribute('fetch').replace('[parent]', parentValue);
+      } else {
+        delete props['fetch'];
+        props.disabled = true;
+      }
       this.parentCallback = e => {
         if (!e.target.selection || (Array.isArray(e.target.selection) && !e.target.selection.length)) {
           this.svelecte.clearByParent(true);

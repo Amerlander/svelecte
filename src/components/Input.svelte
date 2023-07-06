@@ -11,6 +11,8 @@
   export let inputValue;
   export let hasDropdownOpened;
   export let selectedOptions;
+  export let isAndroid;
+  export let inputMode = 'text';
 
   let inputRef = null;
   let shadowWidth = 0;
@@ -22,10 +24,13 @@
   $: shadowText = $inputValue || placeholderText;
   $: widthAddition = selectedOptions.length === 0 ? 19 : 12;
   $: inputStyle = `width: ${isSingleFilled ? 2 : shadowWidth + widthAddition}px`;
+	$: enterHint = isSingleFilled ? null : 'enter';
 
   let disableEventBubble = false;
 
   function onKeyDown(e) {
+		if (isAndroid && !enterHint && e.key=== 'Enter') return true;
+
     disableEventBubble = ['Enter', 'Escape'].includes(e.key) && $hasDropdownOpened;
     dispatch('keydown', e);
   }
@@ -37,6 +42,12 @@
       e.preventDefault();
     }
     disableEventBubble = false;
+  }
+
+  function onInput(e) {
+    if (selectedOptions.length === 1 && !multiple) {
+      $inputValue = '';
+    }
   }
 </script>
 
@@ -50,10 +61,13 @@
   bind:value={$inputValue} 
   on:focus
   on:blur
+  on:input={onInput}
   on:keydown={onKeyDown}
   on:keyup={onKeyUp}
   on:paste
   on:change|stopPropagation
+  enterkeyhint={enterHint}
+  inputmode={inputMode}
 >
 <div class="shadow-text" bind:clientWidth={shadowWidth}>{shadowText}</div>
 <!--</div>-->

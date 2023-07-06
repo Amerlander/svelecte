@@ -4,19 +4,25 @@ const settings = {
   // basic
   valueField: null,
   labelField: null,
+  groupLabelField: 'label',
+  groupItemsField: 'options',
   disabledField: '$disabled',
   placeholder: 'Select',
   valueAsObject: false,
   // ui
   searchable: true,
   clearable: false,
-  selectOnTab: false,
+  highlightFirstItem: true,
+  selectOnTab: null,        // recognize values: null, truthy, 'select-navigate'
   resetOnBlur: true,
+  resetOnSelect: true,
   fetchResetOnBlur: true,
   // multi
   multiple: false,
+  closeAfterSelect: false,
   max: 0,
   collapseSelection: false, // enable collapsible multiple selection
+  alwaysCollapsed: false,
   // create
   creatable: false,
   creatablePrefix: '*',
@@ -46,9 +52,10 @@ const settings = {
     collapsedSelection: count => `${count} selected`,
     createRowLabel: value => `Create '${value}'`
   },
+  // bound to 'i18n'
   collapseSelectionFn: function(selectionCount, selection) {
-    return settings.i18n.collapsedSelection(selectionCount);
-  }
+    return this.collapsedSelection(selectionCount);
+  },
 }
 
 export default settings;
