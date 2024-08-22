@@ -649,6 +649,9 @@
 
   function onDndEvent(e) {
     selectedOptions = e.detail.items;
+    if(e.type=="finalize"){
+      emitChangeEvent();
+    }
   }
 
   /** ************************************ component lifecycle related */
