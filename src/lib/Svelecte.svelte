@@ -1604,8 +1604,7 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   {#if portal && is_mounted && render_dropdown}
     <Portal>
-      <div class="sv_dropdown {dropdownClass} is-open"
-        bind:this={dropdownElement}
+      <div class="sv_dropdown {dropdownClass} is-open portal"
         use:floatingContent
         onmousedown={on_mouse_down}
         onclick={on_click}
@@ -1750,6 +1749,10 @@
 <!-- /svelecte -->
 
 <style>
+
+  .portal {
+    z-index: 99999;
+  }
   /** make it global to be able to apply it also for anchored select */
   :global(.sv-hidden-element) { opacity: 0; position: absolute; z-index: -2; top: 0; height: var(--sv-min-height, 30px)}
 
