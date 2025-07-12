@@ -37,10 +37,9 @@
   import { onMount, tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import { pixelGetter, positionDropdown, scrollIntoView } from './utils/dropdown.js';
-  import Portal from 'svelte-portal';
+import Portal from 'svelte-portal';
   import { createFloatingActions } from 'svelte-floating-ui';
   import { offset, flip as floatingFlip, shift } from 'svelte-floating-ui/dom';
-  // import { onClickOutside } from 'runed';
   import { createConfig, ensureObjectArray, filterList, flatList, fieldInit, initSelection } from './utils/list.js';
   import { highlightSearch, android } from './utils/helpers.js';
   import { bindItem } from './utils/actions.js';
@@ -49,6 +48,7 @@
   /**
    * @type {{
    *  portal?: boolean;
+   *  portalZIndex?: number;
    *  name?: string;
    *  inputId?: string;
    *  required?: boolean;
@@ -129,6 +129,7 @@
    */
   let {
     portal = false, // opt-in for portal renderingpositioning
+    portalZIndex = 99999,
     name = '',
     inputId = '',
     required = false,
@@ -330,6 +331,7 @@
   let /** @type {HTMLDivElement}    */  ref_container_scroll = $state(null);
   // svelte-ignore non_reactive_update
   let /** svelte-tiny-virtual-list  */  ref_virtuallist;
+  let svelecteWidth = $state();
 
   // #region [reactivity]
   $effect(() => {
@@ -1522,6 +1524,7 @@
   class:is-open={is_dropdown_opened}
   class:is-disabled={disabled}
   role="none"
+  bind:clientWidth={svelecteWidth}
 >
   <span aria-live="polite" aria-atomic="false" aria-relevant="additions text" class="a11y-text">
     {#if is_focused}
@@ -1604,11 +1607,16 @@
   <!-- svelte-ignore a11y_click_events_have_key_events -->
   {#if portal && is_mounted && render_dropdown}
     <Portal>
-      <div class="sv_dropdown {dropdownClass} is-open portal"
+      <div 
+        class="sv_dropdown {dropdownClass} portal" 
+        class:is-open={dropdown_show}
+        style="
+          --min-width: {svelecteWidth}px;
+          --dropdown-z-index: {portalZIndex};
+          "
         use:floatingContent
         onmousedown={on_mouse_down}
         onclick={on_click}
-        use:positionResolver
       >
         {#if listHeader}{@render listHeader()}{/if}
         <div bind:this={ref_container_scroll} class="sv-dropdown-scroll" class:has-items={options_filtered.length>0} class:is-virtual={virtualList} tabindex="-1">
@@ -1750,9 +1758,6 @@
 
 <style>
 
-  .portal {
-    z-index: 99999;
-  }
   /** make it global to be able to apply it also for anchored select */
   :global(.sv-hidden-element) { opacity: 0; position: absolute; z-index: -2; top: 0; height: var(--sv-min-height, 30px)}
 
@@ -1957,7 +1962,7 @@
     margin: var(--sv-dropdown-offset, 1px) 0;
     box-sizing: border-box;
     position: absolute;
-    min-width: 100%;
+    min-width: var(--min-width, 100%);
     width: var(--sv-dropdown-width, auto);
     background-color: var(--sv-dropdown-bg, var(--sv-bg, #fff));
     overflow-y: auto;
@@ -1968,10 +1973,11 @@
     opacity: 0;
     z-index: -1000;
     pointer-events: none;
+    max-height: max-content;
 
     &.is-open {
       opacity: 1;
-      z-index: 2;
+      z-index: var(--dropdown-z-index, 2);
       pointer-events: auto;
     }
   }
