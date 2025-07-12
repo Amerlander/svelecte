@@ -10,6 +10,7 @@ export default Svelecte;
 type Svelecte = {
     $on?(type: string, callback: (e: any) => void): () => void;
     $set?(props: Partial<{
+        portal?: boolean;
         name?: string;
         inputId?: string;
         required?: boolean;
@@ -99,6 +100,7 @@ type Svelecte = {
     refetchWith: (value: string | number | any[]) => void;
 };
 declare const Svelecte: import("svelte").Component<{
+    portal?: boolean;
     name?: string;
     inputId?: string;
     required?: boolean;

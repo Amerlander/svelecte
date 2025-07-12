@@ -48,6 +48,7 @@
 
   /**
    * @type {{
+   *  portal?: boolean;
    *  name?: string;
    *  inputId?: string;
    *  required?: boolean;
