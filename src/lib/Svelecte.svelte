@@ -37,6 +37,10 @@
   import { onMount, tick } from 'svelte';
   import { flip } from 'svelte/animate';
   import { pixelGetter, positionDropdown, scrollIntoView } from './utils/dropdown.js';
+  import Portal from 'svelte-portal';
+  import { createFloatingActions } from 'svelte-floating-ui';
+  import { offset, flip as floatingFlip, shift } from 'svelte-floating-ui/dom';
+  // import { onClickOutside } from 'runed';
   import { createConfig, ensureObjectArray, filterList, flatList, fieldInit, initSelection } from './utils/list.js';
   import { highlightSearch, android } from './utils/helpers.js';
   import { bindItem } from './utils/actions.js';
@@ -123,6 +127,7 @@
    * }}
    */
   let {
+    portal = false, // opt-in for portal renderingpositioning
     name = '',
     inputId = '',
     required = false,
@@ -277,6 +282,27 @@
   let is_dropdown_opened = $state(false);
   let dropdown_show = $state(false);
   let dropdown_index = $state(highlightFirstItem ? 0 : -1);
+  // let clickOutside;
+  let triggerElement = $state();
+  let dropdownElement = $state();
+  let floatingRef, floatingContent, updateFloating;
+  if (portal) {
+    [floatingRef, floatingContent, updateFloating] = createFloatingActions({
+      strategy: 'fixed',
+      placement: 'bottom-end',
+      middleware: [offset(8), floatingFlip(), shift({ padding: 8 })]
+    });
+
+    // clickOutside = onClickOutside(
+    //   () => dropdownElement,
+    //   () => { if (is_dropdown_opened) updateDropdownState(false); },
+    //   { immediate: false, detectIframe: true }
+    // );
+    // $effect(() => {
+    //   if (is_dropdown_opened) clickOutside.start();
+    //   else clickOutside.stop();
+    // });
+  }
   // dropdown-related
   let render_dropdown = $state(!lazyDropdown);
   let dropdown_scroller = null;
@@ -1588,77 +1614,152 @@
   <!-- #region DROPDOWN -->
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="sv_dropdown {dropdownClass} " class:is-open={dropdown_show}
-    onmousedown={on_mouse_down}
-    onclick={on_click}
-    use:positionResolver
-  >
-  {#if is_mounted && render_dropdown}
-      {#if listHeader}{@render listHeader()}{/if}
-      <div bind:this={ref_container_scroll} class="sv-dropdown-scroll" class:has-items={options_filtered.length>0} class:is-virtual={virtualList} tabindex="-1">
-        <div bind:this={ref_container} class="sv-dropdown-content" class:max-reached={maxReached} >
-          {#if virtualList && ref_container_scroll}
-            <VirtualList
-              bind:this={ref_virtuallist}
-              maxHeight={get_dropdown_dimensions().shift()}
-              itemHeight={vlItemSize}
-              itemCount={options_filtered.length || 0}
-              scrollToIndex={dropdown_index}
-            >
-              {#snippet children(index)}
-                {@const opt = options_filtered[index] || {}}
+  {#if portal && is_mounted && render_dropdown}
+    <Portal>
+      <div class="sv_dropdown {dropdownClass} is-open"
+        bind:this={dropdownElement}
+        use:floatingContent
+        onmousedown={on_mouse_down}
+        onclick={on_click}
+        use:positionResolver
+      >
+        {#if listHeader}{@render listHeader()}{/if}
+        <div bind:this={ref_container_scroll} class="sv-dropdown-scroll" class:has-items={options_filtered.length>0} class:is-virtual={virtualList} tabindex="-1">
+          <div bind:this={ref_container} class="sv-dropdown-content" class:max-reached={maxReached} >
+            {#if virtualList && ref_container_scroll}
+              <VirtualList
+                bind:this={ref_virtuallist}
+                maxHeight={get_dropdown_dimensions().shift()}
+                itemHeight={vlItemSize}
+                itemCount={options_filtered.length || 0}
+                scrollToIndex={dropdown_index}
+              >
+                {#snippet children(index)}
+                  {@const opt = options_filtered[index] || {}}
+                  {#if opt.$isGroupHeader}
+                    <div class="sv-optgroup-header"><b>{opt.label}</b></div>
+                  {:else}
+                    <div data-pos={index}
+                      class="sv-item--wrap in-dropdown {optionClass}"
+                      class:sv-dd-item-active={dropdown_index === index}
+                      class:is-selected={opt.$selected || selectedKeys.has(opt[currentValueField])}
+                      class:is-disabled={opt[disabledField]}
+                    >
+                      {@render option(opt, input_value)}
+                    </div>
+                  {/if}
+                {/snippet}
+              </VirtualList>
+            {:else}
+              {#each options_filtered as opt, i}
                 {#if opt.$isGroupHeader}
                   <div class="sv-optgroup-header"><b>{opt.label}</b></div>
                 {:else}
-                  <div data-pos={index}
+                  <div data-pos={i}
                     class="sv-item--wrap in-dropdown {optionClass}"
-                    class:sv-dd-item-active={dropdown_index === index}
-                    class:is-selected={opt.$selected || selectedKeys.has(opt[currentValueField])}
+                    class:sv-dd-item-active={dropdown_index === i}
+                    class:is-selected={opt.$selected}
                     class:is-disabled={opt[disabledField]}
                   >
                     {@render option(opt, input_value)}
                   </div>
                 {/if}
-              {/snippet}
-            </VirtualList>
-          {:else}
-            {#each options_filtered as opt, i}
-              {#if opt.$isGroupHeader}
-                <div class="sv-optgroup-header"><b>{opt.label}</b></div>
-              {:else}
-                <div data-pos={i}
-                  class="sv-item--wrap in-dropdown {optionClass}"
-                  class:sv-dd-item-active={dropdown_index === i}
-                  class:is-selected={opt.$selected}
-                  class:is-disabled={opt[disabledField]}
-                >
-                  {@render option(opt, input_value)}
-                </div>
-              {/if}
-            {/each}
-          {/if}
-        {#if options_filtered.length === 0 && (!creatable || !input_value) || maxReached}
+              {/each}
+            {/if}
+            {#if options_filtered.length === 0 && (!creatable || !input_value) || maxReached}
+              <div class="is-dropdown-row">
+                <div class="sv-item--wrap in-dropdown {optionClass}"><div class="sv-item--content">{listMessage}</div></div>
+              </div>
+            {/if}
+          </div>
+        </div> <!-- scroll container end -->
+        {#if creatable && input_value && !maxReached}
           <div class="is-dropdown-row">
-            <div class="sv-item--wrap in-dropdown {optionClass}"><div class="sv-item--content">{listMessage}</div></div>
+            <button type="button" class="creatable-row" onclick={on_create} onmousedown={e => e.preventDefault()}
+              class:active={(options_filtered.length ? options_filtered.length : 0) === dropdown_index}
+              class:is-disabled={createFilterFn(input_value)}
+              disabled={createFilterFn(input_value)}
+            >
+              {@render createRow(isCreating, input_value, i18n_actual)}
+            </button>
           </div>
         {/if}
       </div>
-    </div> <!-- scroll container end -->
-    {#if creatable && input_value && !maxReached}
-      <div class="is-dropdown-row">
-        <button type="button" class="creatable-row" onclick={on_create} onmousedown={e => e.preventDefault()}
-          class:active={(options_filtered.length ? options_filtered.length : 0) === dropdown_index}
-          class:is-disabled={createFilterFn(input_value)}
-          disabled={createFilterFn(input_value)}
-        >
-          {@render createRow(isCreating, input_value, i18n_actual)}
-        </button>
-      </div>
-    {/if}
+    </Portal>
+  {:else}
+    <div class="sv_dropdown {dropdownClass} " class:is-open={dropdown_show}
+      onmousedown={on_mouse_down}
+      onclick={on_click}
+      use:positionResolver
+    >
+      {#if is_mounted && render_dropdown}
+        {#if listHeader}{@render listHeader()}{/if}
+        <div bind:this={ref_container_scroll} class="sv-dropdown-scroll" class:has-items={options_filtered.length>0} class:is-virtual={virtualList} tabindex="-1">
+          <div bind:this={ref_container} class="sv-dropdown-content" class:max-reached={maxReached} >
+            {#if virtualList && ref_container_scroll}
+              <VirtualList
+                bind:this={ref_virtuallist}
+                maxHeight={get_dropdown_dimensions().shift()}
+                itemHeight={vlItemSize}
+                itemCount={options_filtered.length || 0}
+                scrollToIndex={dropdown_index}
+              >
+                {#snippet children(index)}
+                  {@const opt = options_filtered[index] || {}}
+                  {#if opt.$isGroupHeader}
+                    <div class="sv-optgroup-header"><b>{opt.label}</b></div>
+                  {:else}
+                    <div data-pos={index}
+                      class="sv-item--wrap in-dropdown {optionClass}"
+                      class:sv-dd-item-active={dropdown_index === index}
+                      class:is-selected={opt.$selected || selectedKeys.has(opt[currentValueField])}
+                      class:is-disabled={opt[disabledField]}
+                    >
+                      {@render option(opt, input_value)}
+                    </div>
+                  {/if}
+                {/snippet}
+              </VirtualList>
+            {:else}
+              {#each options_filtered as opt, i}
+                {#if opt.$isGroupHeader}
+                  <div class="sv-optgroup-header"><b>{opt.label}</b></div>
+                {:else}
+                  <div data-pos={i}
+                    class="sv-item--wrap in-dropdown {optionClass}"
+                    class:sv-dd-item-active={dropdown_index === i}
+                    class:is-selected={opt.$selected}
+                    class:is-disabled={opt[disabledField]}
+                  >
+                    {@render option(opt, input_value)}
+                  </div>
+                {/if}
+              {/each}
+            {/if}
+            {#if options_filtered.length === 0 && (!creatable || !input_value) || maxReached}
+              <div class="is-dropdown-row">
+                <div class="sv-item--wrap in-dropdown {optionClass}"><div class="sv-item--content">{listMessage}</div></div>
+              </div>
+            {/if}
+          </div>
+        </div> <!-- scroll container end -->
+        {#if creatable && input_value && !maxReached}
+          <div class="is-dropdown-row">
+            <button type="button" class="creatable-row" onclick={on_create} onmousedown={e => e.preventDefault()}
+              class:active={(options_filtered.length ? options_filtered.length : 0) === dropdown_index}
+              class:is-disabled={createFilterFn(input_value)}
+              disabled={createFilterFn(input_value)}
+            >
+              {@render createRow(isCreating, input_value, i18n_actual)}
+            </button>
+          </div>
+        {/if}
+      {/if}
+      <!-- #endregion -->
+    </div>
   {/if}
-  <!-- #endregion -->
   </div>
-</div> <!-- /svelecte -->
+<!-- /svelecte -->
 
 <style>
   /** make it global to be able to apply it also for anchored select */
