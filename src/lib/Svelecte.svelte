@@ -284,26 +284,13 @@
   let dropdown_show = $state(false);
   let dropdown_index = $state(highlightFirstItem ? 0 : -1);
   // let clickOutside;
-  let triggerElement = $state();
-  let dropdownElement = $state();
-  let floatingRef, floatingContent, updateFloating;
-  if (portal) {
-    [floatingRef, floatingContent, updateFloating] = createFloatingActions({
+
+  const [floatingRef, floatingContent, update] = createFloatingActions({
       strategy: 'fixed',
       placement: 'bottom-end',
-      middleware: [offset(8), floatingFlip(), shift({ padding: 8 })]
-    });
-
-    // clickOutside = onClickOutside(
-    //   () => dropdownElement,
-    //   () => { if (is_dropdown_opened) updateDropdownState(false); },
-    //   { immediate: false, detectIframe: true }
-    // );
-    // $effect(() => {
-    //   if (is_dropdown_opened) clickOutside.start();
-    //   else clickOutside.stop();
-    // });
-  }
+      middleware: [offset(8), floatingFlip(), shift({ padding: 8 })
+    ]
+  });
   // dropdown-related
   let render_dropdown = $state(!lazyDropdown);
   let dropdown_scroller = null;
@@ -1553,7 +1540,7 @@
   {/if}
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <!-- svelte-ignore a11y_click_events_have_key_events -->
-  <div class="sv-control {controlClass}" onmousedown={on_mouse_down} onclick={on_click}>
+  <div class="sv-control {controlClass}" use:floatingRef onmousedown={on_mouse_down} onclick={on_click}>
     {#if prepend}{@render prepend()}{/if}
     <!-- #region selection & input -->
     <div class="sv-control--selection" class:is-single={multiple === false} class:has-items={selectedOptions.length > 0} class:has-input={input_value.length}
