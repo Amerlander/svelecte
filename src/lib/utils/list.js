@@ -1,4 +1,4 @@
-import Sifter from './sifter.js';
+import fuzzysort from 'fuzzysort';
 
 /**
  * @typedef {object} ComponentConfig
@@ -162,50 +162,55 @@ export function filterList(options, inputValue, excludeSelected, config, searchP
   }
   if (searchProps.disabled || !inputValue) return options;
 
-  const sifter = new Sifter(options);
   /**
-   * Sifter is used for searching to provide rich filter functionality.
-   * But it degradate nicely, when optgroups are present
+   * Sifter is replaced by fuzzysort
+   * 
+
   */
-  if (config.optionsWithGroups || searchProps.skipSort) {  // disable sorting
-    sifter.getSortFunction = () => null;
-  }
-  let conjunction = 'and';
-  if (inputValue.includes('|')) {
-    conjunction = 'or';
-    inputValue = inputValue.split('|').map(word => word.trim()).join(' ');
-  }
+    function filterByValue(string, array, keys) {
+      let fuzzyData = fuzzysort.go(string, array, {keys:keys});
+      // return fuzzyData;
+      let finalData = [];
+    
+      fuzzyData.forEach((r, index) => {
+        finalData[index] = {...r['obj']};
+        for (let [i,q] of keys.entries()) {	
+          if(r[i] != null) {
+            finalData[index][q] = fuzzysort.highlight(r[i], '<mark>', '</mark>');
+            break;
+          }
 
-  const result = sifter.search(inputValue, {
-    fields: searchProps.fields || config.optionProps,
-    sort: searchProps.sort || createSifterSortField(config.labelField),
-    conjunction: searchProps.conjunction || conjunction,
-    nesting: searchProps.nesting || false,
-    wordsOnly: searchProps.wordsOnly || false,
-    startOnly: searchProps.startOnly || false
-  });
-
-  const mapped = config.optionsWithGroups
-    ? result.items.reduce((res, item) => {
-        const opt = options[item.id];
-        if (excludeSelected && opt.isSelected) return res;
-        const lastPos = res.push(opt);
-        if (opt.$isGroupItem) {
-          const prevItems = options.slice(0, item.id);
-          let prev = null;
-          do {
-            prev = prevItems.pop();
-            prev && prev.$isGroupHeader && !res.includes(prev) && res.splice(lastPos - 1, 0, prev);
-          } while (prev && !prev.$isGroupHeader);
         }
-        return res;
-      }, [])
-    : result.items.map(item => options[item.id])
-  return mapped;
-}
-
-function createSifterSortField(prop) {
-  return [{ field: prop, direction: 'asc'}];
+      });
+      return finalData;
+    }
+    let result = filterByValue(inputValue, [...options], ['name'])
+    return result
+  
+  // TODO: Add grouping functionallity to fuzzy sort
+  
+    if (config.optionsWithGroups) {  // disable sorting 
+      sifter.getSortFunction = () => null;
+    }
+  
+    const mapped = config.optionsWithGroups
+      ? result2.reduce((res, item) => {
+          const opt = options[item.id];
+          if (excludeSelected && opt.isSelected) return res;
+          const lastPos = res.push(opt);
+          if (opt.$isGroupItem) {
+            const prevItems = options.slice(0, item.id);
+            let prev = null;
+            do {
+              prev = prevItems.pop();
+              prev && prev.$isGroupHeader && !res.includes(prev) && res.splice(lastPos - 1, 0, prev);
+            } while (prev && !prev.$isGroupHeader);
+          }
+          return res;
+        }, [])
+      : result2
+  
+    return mapped;
 }
 
 /**

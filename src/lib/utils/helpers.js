@@ -1,4 +1,4 @@
-import { asciifold } from './sifter.js';
+// import { asciifold } from './sifter.js';
 
 let itemHtml;
 
@@ -14,25 +14,25 @@ let itemHtml;
 export function highlightSearch(item, renderInSelection, inputValue, itemRenderer, disableHighlight) {
   const itemHtmlText = itemRenderer(item, renderInSelection, inputValue);
 
-  if (inputValue == '' || item.isSelected || disableHighlight) {
+  // if (inputValue == '' || item.isSelected || disableHighlight) {
     return itemHtmlText;
-  }
+  // }
 
-  if (!itemHtml) {
-    itemHtml = document.createElement('div');
-  }
-  itemHtml.innerHTML = itemHtmlText;
+  // if (!itemHtml) {
+  //   itemHtml = document.createElement('div');
+  // }
+  // itemHtml.innerHTML = itemHtmlText;
 
-  const pattern = asciifold(inputValue);
-  (pattern.includes('|')
-    ? pattern.split('|').map(w => w.trim())
-    : pattern.split(' ')
-  )
-    .filter(e => e).forEach(pat => {
-      highlight(itemHtml, pat);
-    });
+  // const pattern = asciifold(inputValue);
+  // (pattern.includes('|')
+  //   ? pattern.split('|').map(w => w.trim())
+  //   : pattern.split(' ')
+  // )
+  //   .filter(e => e).forEach(pat => {
+  //     highlight(itemHtml, pat);
+  //   });
 
-  return itemHtml.innerHTML;
+  // return itemHtml.innerHTML;
 }
 
 /**

@@ -51,6 +51,9 @@ importers:
       '@vitest/ui':
         specifier: ^3.1.1
         version: 3.1.1(vitest@3.1.1)
+      fuzzysort:
+        specifier: github:Amerlander/fuzzysort
+        version: https://codeload.github.com/Amerlander/fuzzysort/tar.gz/e6265d92d8ab2f71596633d329670485756dd6d3
       jsdom:
         specifier: ^26.0.0
         version: 26.0.0
@@ -1478,6 +1481,10 @@ packages:
 
   function-bind@1.1.2:
     resolution: {integrity: sha512-7XHNxH7qX9xG5mIwxkhumTox/MIRNcOgDrxWsMt2pAr23WHp6MrRlN7FBSFpCpr+oVO0F744iUgR82nJMfG2SA==}
+
+  fuzzysort@https://codeload.github.com/Amerlander/fuzzysort/tar.gz/e6265d92d8ab2f71596633d329670485756dd6d3:
+    resolution: {tarball: https://codeload.github.com/Amerlander/fuzzysort/tar.gz/e6265d92d8ab2f71596633d329670485756dd6d3}
+    version: 1.1.4
 
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
@@ -4045,6 +4052,8 @@ snapshots:
     optional: true
 
   function-bind@1.1.2: {}
+
+  fuzzysort@https://codeload.github.com/Amerlander/fuzzysort/tar.gz/e6265d92d8ab2f71596633d329670485756dd6d3: {}
 
   get-caller-file@2.0.5: {}
 

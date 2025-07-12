@@ -48,10 +48,11 @@ let myValue = null;
 
 Visit [documentation](https://svelecte.vercel.app/) for more details.
 
+
 ## Thanks to
 
 - [selectize.js](https://github.com/selectize/selectize.js) - main inspiration
-- [sifter](https://github.com/brianreavis/sifter.js) - search engine
+- [fuzzysort](https://github.com/farzher/fuzzysort) - search engine
 - [svelte-tiny-virtual-list](https://github.com/Skayo/svelte-tiny-virtual-list) virtual list functionality for v3, v4
 - and [svelte](https://svelte.dev) of course 😊
 
