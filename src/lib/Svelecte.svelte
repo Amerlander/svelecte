@@ -49,6 +49,7 @@ import Portal from 'svelte-portal';
    * @type {{
    *  portal?: boolean;
    *  portalZIndex?: number;
+   *  preventDefault?: boolean;
    *  name?: string;
    *  inputId?: string;
    *  required?: boolean;
@@ -130,6 +131,7 @@ import Portal from 'svelte-portal';
   let {
     portal = false, // opt-in for portal renderingpositioning
     portalZIndex = 99999,
+    preventDefault = false,
     name = '',
     inputId = '',
     required = false,
@@ -1033,6 +1035,9 @@ import Portal from 'svelte-portal';
    * @param {MouseEvent & { currentTarget: EventTarget & HTMLDivElement} & { target: HTMLElement }} event
    */
   function on_click(event) {
+    if(preventDefault) {
+      event.preventDefault();
+    }
     if (disabled) return;
 
     const target = /** @type {HTMLElement & import('./utils/actions.js').ExtButton} */ (event.target.closest('[data-action]'));

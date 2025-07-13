@@ -12,6 +12,7 @@ type Svelecte = {
     $set?(props: Partial<{
         portal?: boolean;
         portalZIndex?: number;
+        preventDefault?: boolean;
         name?: string;
         inputId?: string;
         required?: boolean;
@@ -103,6 +104,7 @@ type Svelecte = {
 declare const Svelecte: import("svelte").Component<{
     portal?: boolean;
     portalZIndex?: number;
+    preventDefault?: boolean;
     name?: string;
     inputId?: string;
     required?: boolean;
