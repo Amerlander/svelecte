@@ -86,7 +86,7 @@ import Portal from 'svelte-portal';
    *  createFilter?: (inputValue: string) => boolean;
    *  createHandler?: (prop: { inputValue: string, valueField: string, labelField: string, prefix: string }) => (Promise<object> | object);
    *  fetch?: string | null;
-   *  fetchProps?: object;
+   *  fetchProps?: object | Function;
    *  fetchMode?: "auto" | "init";
    *  fetchCallback?: Function;
    *  fetchResetOnBlur?: boolean;
@@ -1292,8 +1292,10 @@ import Portal from 'svelte-portal';
         : i18n_actual.fetchBefore;
       return;
     }
-
-    const built = defaults.requestFactory(input_value, { parentValue, url: fetch, initial: initialFetchValue }, fetchProps);
+    const built = defaults.requestFactory(
+      input_value,
+      { parentValue, url: fetch, initial: initialFetchValue },
+      typeof fetchProps === 'function' ? fetchProps() : fetchProps);
     fetch_controller?.abort();
     fetch_controller = built.controller;
     window.fetch(built.request)
@@ -1720,7 +1722,7 @@ import Portal from 'svelte-portal';
                   {/if}
                 {/snippet}
               </VirtualList>
-            {:else}
+            {:else if virtualList === false}
               {#each options_filtered as opt, i}
                 {#if opt.$isGroupHeader}
                   <div class="sv-optgroup-header"><b>{opt.label}</b></div>
