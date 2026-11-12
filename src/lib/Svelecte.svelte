@@ -143,7 +143,7 @@ import Portal from 'svelte-portal';
     groupLabelField = defaults.groupLabelField,
     groupItemsField = defaults.groupItemsField,
     disabledField = defaults.disabledField,
-    placeholder = defaults.placeholder,
+    placeholder = undefined,
     searchable = defaults.searchable,
     clearable = defaults.clearable,
     renderer,
@@ -398,7 +398,9 @@ import Portal from 'svelte-portal';
   /** @type {'text'|'none'}*/
   let input_mode = $derived(searchable ? 'text' : 'none');
   /** @type {string} */
-  let placeholder_active = $derived(selectedOptions.length ? '' : placeholder);
+  // fallback read here, not as prop default: a prop default is evaluated once, so a getter on
+  // config.placeholder (e.g. a localised text) would not follow later changes
+  let placeholder_active = $derived(selectedOptions.length ? '' : (placeholder ?? config.placeholder));
   /** @type {'enter'|null} */
   let enter_hint = $derived(selectedOptions.length > 0 && multiple === false ? null : 'enter');
   // aria related
